@@ -1250,17 +1250,28 @@
     const selectIgpuButton = document.getElementById('select-igpu');
     const clearIgpuButton = document.getElementById('clear-igpu');
 
-    let activeSeries = new Set(); // 存储选中的系列标签
+    const normalizedData = gpuData.map(item => {
+        const scoreValue = typeof item.score === 'number' ? item.score : 0;
+        return {
+            name: item.name,
+            nameLower: item.name.toLowerCase(),
+            score: scoreValue,
+            scoreText: scoreValue.toLocaleString()
+        };
+    });
+
+    let activeSeries = new Set();
     let seriesCheckboxes = [];
     let selectedNames = new Set();
+    let renderToken = 0;
 
     // 初始化页面
     function init() {
         createSeriesCheckboxes();
-        renderTable(gpuData);
-        
+        renderTable(normalizedData);
+
         // 绑定事件
-        const debouncedRender = debounce(() => renderTable(gpuData), 200);
+        const debouncedRender = debounce(scheduleRender, 140);
         searchInput.addEventListener('input', debouncedRender);
         scoreInput.addEventListener('input', debouncedRender);
         showMobileInput.addEventListener('change', () => {
@@ -1269,7 +1280,7 @@
             } else {
                 mobileToggle.classList.remove('checked');
             }
-            renderTable(gpuData);
+            scheduleRender();
         });
         showSelectedInput.addEventListener('change', () => {
             if (showSelectedInput.checked) {
@@ -1277,7 +1288,7 @@
             } else {
                 selectedToggle.classList.remove('checked');
             }
-            renderTable(gpuData);
+            scheduleRender();
         });
         selectNvidiaButton.addEventListener('click', () => setVendorSeries('nvidia', true));
         clearNvidiaButton.addEventListener('click', () => setVendorSeries('nvidia', false));
@@ -1285,6 +1296,20 @@
         clearAmdButton.addEventListener('click', () => setVendorSeries('amd', false));
         selectIgpuButton.addEventListener('click', () => setVendorSeries('amd-igpu', true, 'intel-igpu'));
         clearIgpuButton.addEventListener('click', () => setVendorSeries('amd-igpu', false, 'intel-igpu'));
+
+        tableBody.addEventListener('change', event => {
+            const target = event.target;
+            if (!target.classList.contains('row-check')) return;
+            const name = target.getAttribute('data-name');
+            if (target.checked) {
+                selectedNames.add(name);
+            } else {
+                selectedNames.delete(name);
+            }
+            if (showSelectedInput.checked) {
+                scheduleRender();
+            }
+        });
     }
 
     // 动态生成系列复选框
@@ -1308,7 +1333,7 @@
                     label.classList.remove('checked');
                     activeSeries.delete(index);
                 }
-                renderTable(gpuData);
+                scheduleRender();
             });
 
             seriesContainer.appendChild(label);
@@ -1328,7 +1353,15 @@
                 activeSeries.delete(entry.index);
             }
         });
-        renderTable(gpuData);
+        scheduleRender();
+    }
+
+    function scheduleRender() {
+        const token = ++renderToken;
+        requestAnimationFrame(() => {
+            if (token !== renderToken) return;
+            renderTable(normalizedData);
+        });
     }
 
     // 核心筛选与渲染逻辑
@@ -1339,91 +1372,70 @@
         const showSelected = showSelectedInput.checked;
 
         // --- 筛选开始 ---
-        const filtered = data.filter(item => {
+        const filtered = [];
+        let maxRefScore = 0;
+
+        for (let i = 0; i < data.length; i++) {
+            const item = data[i];
             // 1. 评分筛选 (与)
-            if (item.score < minScore) return false;
+            if (item.score < minScore) continue;
 
             // 2. 名称搜索 (与)
-            if (searchText && !item.name.toLowerCase().includes(searchText)) return false;
+            if (searchText && !item.nameLower.includes(searchText)) continue;
 
             // 3. 默认隐藏移动端
-            if (!showMobile && mobileRegex.test(item.name)) return false;
+            if (!showMobile && mobileRegex.test(item.name)) continue;
 
             // 4. 系列筛选 (如果有选中，则是"同类或")
-            // 逻辑: 如果 activeSeries 为空，则不进行此项筛选（相当于全选）
-            // 如果 activeSeries 不为空，item 必须匹配至少一个选中的规则
             if (activeSeries.size > 0) {
                 let matchAnySeries = false;
                 for (let ruleIndex of activeSeries) {
                     if (seriesRules[ruleIndex].regex.test(item.name)) {
                         matchAnySeries = true;
-                        break; 
+                        break;
                     }
                 }
-                if (!matchAnySeries) return false;
+                if (!matchAnySeries) continue;
             }
 
             // 5. 仅展示已勾选
-            if (showSelected && !selectedNames.has(item.name)) return false;
+            if (showSelected && !selectedNames.has(item.name)) continue;
 
-            return true;
-        });
+            filtered.push(item);
+            if (item.score > maxRefScore) maxRefScore = item.score;
+        }
         // --- 筛选结束 ---
 
         // 排序（确保总是按分数高到低，哪怕筛选后）
         filtered.sort((a, b) => b.score - a.score);
-
-        // 获取当前显示集合的最大分值用于绘图基准
-        const maxRefScore = getMaxScore(filtered);
 
         // 渲染 table
         tableBody.innerHTML = '';
         if (filtered.length === 0) {
             tableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px;">没有匹配的显卡</td></tr>';
         } else {
-            filtered.forEach(gpu => {
-                const widthPercent = Math.min((gpu.score / maxRefScore) * 100, 100);
+            const rows = new Array(filtered.length);
+            for (let i = 0; i < filtered.length; i++) {
+                const gpu = filtered[i];
+                const widthPercent = maxRefScore ? Math.min((gpu.score / maxRefScore) * 100, 100) : 0;
                 const isChecked = selectedNames.has(gpu.name);
-                const row = `
+                rows[i] = `
                     <tr>
                         <td class="select-col">
                             <input class="row-check" type="checkbox" data-name="${gpu.name}" ${isChecked ? 'checked' : ''}>
                         </td>
                         <td class="name-col">${gpu.name}</td>
-                        <td class="score-col">${gpu.score.toLocaleString()}</td>
+                        <td class="score-col">${gpu.scoreText}</td>
                         <td class="graph-col">
                             <div class="benchmark-bar" style="width: ${widthPercent}%"></div>
                         </td>
                     </tr>
                 `;
-                tableBody.innerHTML += row;
-            });
-            bindRowCheckboxes();
+            }
+            tableBody.innerHTML = rows.join('');
         }
         
         countDisplay.textContent = `显示 ${filtered.length} / ${data.length} 条`;
-    }
-
-    function bindRowCheckboxes() {
-        const checkboxes = tableBody.querySelectorAll('.row-check');
-        checkboxes.forEach(checkbox => {
-            checkbox.addEventListener('change', () => {
-                const name = checkbox.getAttribute('data-name');
-                if (checkbox.checked) {
-                    selectedNames.add(name);
-                } else {
-                    selectedNames.delete(name);
-                }
-                if (showSelectedInput.checked) {
-                    renderTable(gpuData);
-                }
-            });
-        });
-    }
-
-    function getMaxScore(list) {
-        if (!list || list.length === 0) return 1;
-        return list.reduce((maxScore, item) => Math.max(maxScore, item.score), 1);
     }
 
     function debounce(fn, waitMs) {
