@@ -2,6 +2,8 @@
 
 基于 Geekbench Vulkan 跑分数据的显卡性能对比工具。
 
+[View it on Web](https://huan-yp.github.io/GPU_Score/)
+
 ## 数据来源
 
 - **Geekbench Vulkan Benchmarks**: https://browser.geekbench.com/vulkan-benchmarks
