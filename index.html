@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>主流游戏显卡性能排行榜</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f9f9f9; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); overflow: hidden; }
+        
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; background: #fcfcfc; color: #666; font-size: 14px; padding: 12px 20px; border-bottom: 1px solid #eee; }
+        td { padding: 12px 20px; border-bottom: 1px solid #f5f5f5; font-size: 14px; color: #333; }
+
+        .name-col { width: 40%; font-weight: 500; }
+        .score-col { width: 15%; text-align: right; font-family: "Courier New", monospace; font-weight: bold; }
+        .graph-col { width: 45%; }
+        .select-col { width: 8%; text-align: center; }
+
+        /* 进度条样式 */
+        .benchmark-bar {
+            height: 24px;
+            background: linear-gradient(90deg, #2196F3, #0077d9);
+            border-radius: 3px;
+            transition: width 0.5s ease-in-out;
+            min-width: 2px;
+        }
+        
+        tr:hover { background-color: #f0f7ff; }
+
+        /* 筛选栏样式 */
+        .filter-section { padding: 20px; background: #fff; border-bottom: 1px solid #eee; }
+        .filter-row { display: flex; gap: 20px; margin-bottom: 15px; align-items: center; flex-wrap: wrap; }
+        .filter-group { display: flex; align-items: center; gap: 10px; }
+        .filter-label { font-weight: bold; font-size: 14px; color: #555; }
+        
+        input[type="text"], input[type="number"] { 
+            padding: 8px 12px; 
+            border: 1px solid #ddd; 
+            border-radius: 4px; 
+            font-size: 14px; 
+            width: 180px;
+        }
+
+        .checkbox-group { display: flex; gap: 15px; flex-wrap: wrap; }
+        .checkbox-item { 
+            display: flex; 
+            align-items: center; 
+            gap: 6px; 
+            font-size: 13px; 
+            cursor: pointer; 
+            background: #f0f0f0;
+            padding: 5px 10px;
+            border-radius: 15px;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .checkbox-item:hover { background: #e5e5e5; }
+        .checkbox-item.checked { background: #e3f2fd; border-color: #2196F3; color: #0d47a1; }
+        
+        .checkbox-item input { display: none; } /* 隐藏实际 checkbox，用样式模拟 */
+
+        .row-check {
+            transform: scale(1.1);
+            cursor: pointer;
+        }
+
+        .action-button {
+            border: 1px solid #ddd;
+            background: #fafafa;
+            color: #333;
+            font-size: 12px;
+            padding: 6px 10px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .action-button:hover { background: #f0f0f0; }
+
+        .toggle-item { background: #fff8e1; }
+        .toggle-item.checked { background: #ffecb3; border-color: #ffb300; color: #8d6e00; }
+
+        .count-info { color: #888; font-size: 12px; margin-left: auto; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="filter-section">
+        <div class="filter-row">
+            <div class="filter-group">
+                <span class="filter-label">🔍 型号搜索:</span>
+                <input type="text" id="search-input" placeholder="输入显卡型号 (e.g. 4090)...">
+            </div>
+            <div class="filter-group">
+                <span class="filter-label">📊 最低评分:</span>
+                <input type="number" id="score-input" placeholder="输入最低分" step="5000" value="10000">
+            </div>
+            <span class="count-info" id="count-display">加载中...</span>
+        </div>
+        <div class="filter-row">
+            <span class="filter-label">🏷️ 显卡系列 (只含仍有使用意义的型号):</span>
+            <div class="checkbox-group" id="series-filters">
+                <!-- JS 自动生成 -->
+            </div>
+        </div>
+        <div class="filter-row">
+            <span class="filter-label">⚡ 快捷选择:</span>
+            <div class="checkbox-group">
+                <button class="action-button" id="select-nvidia">全选 NVIDIA</button>
+                <button class="action-button" id="clear-nvidia">取消 NVIDIA</button>
+                <button class="action-button" id="select-amd">全选 AMD</button>
+                <button class="action-button" id="clear-amd">取消 AMD</button>
+                <button class="action-button" id="select-igpu">全选 核显</button>
+                <button class="action-button" id="clear-igpu">取消 核显</button>
+            </div>
+        </div>
+        <div class="filter-row">
+            <span class="filter-label">💻 设备类型:</span>
+            <div class="checkbox-group">
+                <label class="checkbox-item toggle-item" id="mobile-toggle">
+                    <input type="checkbox" id="show-mobile">
+                    包含 Mobile/Laptop
+                </label>
+                <label class="checkbox-item toggle-item" id="selected-toggle">
+                    <input type="checkbox" id="show-selected">
+                    仅展示已勾选
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th class="select-col">选择</th>
+                <th class="name-col">显卡型号 (Device)</th>
+                <th class="score-col">评分 (Score)</th>
+                <th class="graph-col">性能对比</th>
+            </tr>
+        </thead>
+        <tbody id="gpu-table">
+            </tbody>
+    </table>
+</div>
+
+<script>
+    // 数据占位符：Python 脚本会替换下面这个变量的值
+    const gpuData = [
+    {
+        "name": "GeForce RTX 5090 D V2",
+        "score": 381995
+    },
+    {
+        "name": "GeForce RTX 5090",
+        "score": 381102
+    },
+    {
+        "name": "GeForce RTX 5090 D",
+        "score": 378908
+    },
+    {
+        "name": "GeForce RTX 4090",
+        "score": 273592
+    },
+    {
+        "name": "GeForce RTX 5080",
+        "score": 257509
+    },
+    {
+        "name": "GeForce RTX 4090 D",
+        "score": 243876
+    },
+    {
+        "name": "Radeon RX 7900 XTX",
+        "score": 239326
+    },
+    {
+        "name": "GeForce RTX 5070 Ti",
+        "score": 228702
+    },
+    {
+        "name": "GeForce RTX 4080 SUPER",
+        "score": 227278
+    },
+    {
+        "name": "GeForce RTX 4080",
+        "score": 218030
+    },
+    {
+        "name": "Radeon RX 7900 XT",
+        "score": 213244
+    },
+    {
+        "name": "GeForce RTX 4070 Ti SUPER",
+        "score": 208317
+    },
+    {
+        "name": "GeForce RTX 5090 Laptop GPU",
+        "score": 190673
+    },
+    {
+        "name": "GeForce RTX 4070 Ti",
+        "score": 189558
+    },
+    {
+        "name": "GeForce RTX 3090 Ti",
+        "score": 187143
+    },
+    {
+        "name": "Radeon RX 7900 GRE",
+        "score": 185926
+    },
+    {
+        "name": "GeForce RTX 4070 SUPER",
+        "score": 182090
+    },
+    {
+        "name": "GeForce RTX 5070",
+        "score": 181854
+    },
+    {
+        "name": "Radeon RX 9070 XT",
+        "score": 181758
+    },
+    {
+        "name": "GeForce RTX 3090",
+        "score": 179816
+    },
+    {
+        "name": "Radeon RX 6950 XT",
+        "score": 177591
+    },
+    {
+        "name": "GeForce RTX 3080 Ti",
+        "score": 173937
+    },
+    {
+        "name": "GeForce RTX 4090 Laptop GPU",
+        "score": 172507
+    },
+    {
+        "name": "Radeon RX 9070",
+        "score": 168287
+    },
+    {
+        "name": "GeForce RTX 5080 Laptop GPU",
+        "score": 165617
+    },
+    {
+        "name": "Radeon RX 6900 XT",
+        "score": 165224
+    },
+    {
+        "name": "GeForce RTX 3080",
+        "score": 159004
+    },
+    {
+        "name": "GeForce RTX 4070",
+        "score": 158899
+    },
+    {
+        "name": "Radeon RX 7800 XT",
+        "score": 158338
+    },
+    {
+        "name": "Radeon RX 7900M",
+        "score": 153274
+    },
+    {
+        "name": "Radeon RX 6800 XT",
+        "score": 151842
+    },
+    {
+        "name": "GeForce RTX 4080 Laptop GPU",
+        "score": 146294
+    },
+    {
+        "name": "GeForce RTX 5070 Ti Laptop GPU",
+        "score": 143751
+    },
+    {
+        "name": "Radeon RX 7700 XT",
+        "score": 142662
+    },
+    {
+        "name": "GeForce RTX 5060 Ti",
+        "score": 137332
+    },
+    {
+        "name": "GeForce RTX 2080 Ti",
+        "score": 134067
+    },
+    {
+        "name": "GeForce RTX 3070 Ti",
+        "score": 132578
+    },
+    {
+        "name": "Radeon RX 6800",
+        "score": 131885
+    },
+    {
+        "name": "Radeon RX 7800M",
+        "score": 127054
+    },
+    {
+        "name": "GeForce RTX 4060 Ti",
+        "score": 123964
+    },
+    {
+        "name": "GeForce RTX 3070",
+        "score": 121309
+    },
+    {
+        "name": "GeForce RTX 5060",
+        "score": 120429
+    },
+    {
+        "name": "GeForce RTX 3060 Ti",
+        "score": 115945
+    },
+    {
+        "name": "GeForce RTX 5070 Laptop GPU",
+        "score": 115635
+    },
+    {
+        "name": "Radeon RX 9060 XT",
+        "score": 115426
+    },
+    {
+        "name": "Radeon RX 6750 XT",
+        "score": 113826
+    },
+    {
+        "name": "GeForce RTX 4070 Laptop GPU",
+        "score": 112714
+    },
+    {
+        "name": "GeForce RTX 2080 SUPER",
+        "score": 111284
+    },
+    {
+        "name": "Intel Arc B580 Graphics",
+        "score": 110922
+    },
+    {
+        "name": "Radeon RX 6750 GRE 12GB",
+        "score": 109379
+    },
+    {
+        "name": "GeForce RTX 3080 Ti Laptop GPU",
+        "score": 108132
+    },
+    {
+        "name": "GeForce RTX 2080",
+        "score": 107797
+    },
+    {
+        "name": "Radeon RX 6700 XT",
+        "score": 107730
+    },
+    {
+        "name": "Radeon RX 6850M XT",
+        "score": 104773
+    },
+    {
+        "name": "GeForce RTX 3080 Laptop GPU",
+        "score": 104088
+    },
+    {
+        "name": "Radeon RX 9060",
+        "score": 103883
+    },
+    {
+        "name": "GeForce RTX 3070 Ti Laptop GPU",
+        "score": 100119
+    },
+    {
+        "name": "GeForce RTX 4060",
+        "score": 99827
+    },
+    {
+        "name": "GeForce RTX 5060 Laptop GPU",
+        "score": 98293
+    },
+    {
+        "name": "Intel Arc B570 Graphics",
+        "score": 97220
+    },
+    {
+        "name": "GeForce RTX 3070 Laptop GPU",
+        "score": 96471
+    },
+    {
+        "name": "GeForce RTX 2070 SUPER",
+        "score": 96018
+    },
+    {
+        "name": "Radeon RX 6700",
+        "score": 95607
+    },
+    {
+        "name": "Radeon RX 6800M",
+        "score": 95593
+    },
+    {
+        "name": "Intel Arc A770 Graphics",
+        "score": 95342
+    },
+    {
+        "name": "Radeon RX 6750 GRE 10GB",
+        "score": 95097
+    },
+    {
+        "name": "Radeon RX 6650 XT",
+        "score": 93206
+    },
+    {
+        "name": "Radeon 6700",
+        "score": 92043
+    },
+    {
+        "name": "Radeon RX 7650 GRE",
+        "score": 91763
+    },
+    {
+        "name": "Radeon RX 7600",
+        "score": 91523
+    },
+    {
+        "name": "GeForce RTX 5050",
+        "score": 91134
+    },
+    {
+        "name": "Radeon RX 7700S",
+        "score": 90858
+    },
+    {
+        "name": "Radeon RX 6600 XT",
+        "score": 90522
+    },
+    {
+        "name": "GeForce RTX 4060 Laptop GPU",
+        "score": 90193
+    },
+    {
+        "name": "Radeon RX 7600 XT",
+        "score": 89389
+    },
+    {
+        "name": "Radeon 8060S Graphics",
+        "score": 89244
+    },
+    {
+        "name": "GeForce RTX 3060",
+        "score": 86281
+    },
+    {
+        "name": "Intel Arc A750 Graphics",
+        "score": 85568
+    },
+    {
+        "name": "GeForce GTX 1080 Ti",
+        "score": 85261
+    },
+    {
+        "name": "GeForce RTX 2060 SUPER",
+        "score": 85182
+    },
+    {
+        "name": "GeForce RTX 2070",
+        "score": 84246
+    },
+    {
+        "name": "GeForce RTX 2080 Super with Max-Q Design",
+        "score": 83333
+    },
+    {
+        "name": "Radeon RX 6700M",
+        "score": 83239
+    },
+    {
+        "name": "GeForce RTX 3060 Laptop GPU",
+        "score": 82804
+    },
+    {
+        "name": "GeForce RTX 2080 with Max-Q Design",
+        "score": 82318
+    },
+    {
+        "name": "Radeon RX 7600M XT",
+        "score": 81486
+    },
+    {
+        "name": "Radeon RX 6800S",
+        "score": 81469
+    },
+    {
+        "name": "GeForce RTX 5050 Laptop GPU",
+        "score": 81342
+    },
+    {
+        "name": "Radeon RX 7600S",
+        "score": 80501
+    },
+    {
+        "name": "Radeon RX 6600",
+        "score": 80200
+    },
+    {
+        "name": "Intel Arc A580 Graphics",
+        "score": 79298
+    },
+    {
+        "name": "Radeon RX Vega",
+        "score": 78096
+    },
+    {
+        "name": "Intel Arc Pro B50 Graphics",
+        "score": 77919
+    },
+    {
+        "name": "Radeon RX 6650M",
+        "score": 77896
+    },
+    {
+        "name": "Intel Graphics",
+        "score": 77491
+    },
+    {
+        "name": "GeForce RTX 4050 Laptop GPU",
+        "score": 76133
+    },
+    {
+        "name": "GeForce RTX 2070 Super with Max-Q Design",
+        "score": 75903
+    },
+    {
+        "name": "Intel Arc A770M Graphics",
+        "score": 74419
+    },
+    {
+        "name": "Radeon RX 5700 XT 50th Anniversary",
+        "score": 74193
+    },
+    {
+        "name": "Radeon RX 6600M",
+        "score": 73551
+    },
+    {
+        "name": "Radeon RX 5700 XT",
+        "score": 72974
+    },
+    {
+        "name": "GeForce RTX 2060",
+        "score": 72470
+    },
+    {
+        "name": "GeForce RTX 2070 with Max-Q Design",
+        "score": 72062
+    },
+    {
+        "name": "Radeon RX 6600 LE",
+        "score": 70682
+    },
+    {
+        "name": "Radeon RX 6700S",
+        "score": 65907
+    },
+    {
+        "name": "GeForce GTX 1080",
+        "score": 65217
+    },
+    {
+        "name": "Radeon RX 5700",
+        "score": 65201
+    },
+    {
+        "name": "Intel Arc A730M Graphics",
+        "score": 64693
+    },
+    {
+        "name": "GeForce RTX 3050",
+        "score": 62301
+    },
+    {
+        "name": "GeForce GTX 1660 Ti",
+        "score": 62066
+    },
+    {
+        "name": "Radeon RX 5600 XT",
+        "score": 62007
+    },
+    {
+        "name": "Radeon 8050S Graphics",
+        "score": 61712
+    },
+    {
+        "name": "GeForce GTX 1070 Ti",
+        "score": 61006
+    },
+    {
+        "name": "Intel Arc B390 GPU",
+        "score": 60551
+    },
+    {
+        "name": "GeForce GTX 1660 SUPER",
+        "score": 60513
+    },
+    {
+        "name": "GeForce RTX 2060 with Max-Q Design",
+        "score": 59561
+    },
+    {
+        "name": "Intel Arc Pro A60 Graphics",
+        "score": 58805
+    },
+    {
+        "name": "GeForce GTX 1080 with Max-Q Design",
+        "score": 58341
+    },
+    {
+        "name": "GeForce RTX 3050 A Laptop GPU",
+        "score": 58094
+    },
+    {
+        "name": "GeForce RTX 3050 OEM",
+        "score": 57610
+    },
+    {
+        "name": "GeForce RTX 3050 6GB Laptop GPU",
+        "score": 57602
+    },
+    {
+        "name": "GeForce GTX 1660",
+        "score": 56143
+    },
+    {
+        "name": "GeForce RTX 3050 Ti Laptop GPU",
+        "score": 56048
+    },
+    {
+        "name": "Radeon RX 6500 XT",
+        "score": 54642
+    },
+    {
+        "name": "GeForce GTX 1660 Ti with Max-Q Design",
+        "score": 54216
+    },
+    {
+        "name": "GeForce GTX 1650 SUPER",
+        "score": 54186
+    },
+    {
+        "name": "Radeon RX 5600 OEM",
+        "score": 53743
+    },
+    {
+        "name": "Radeon RX 6550M",
+        "score": 53730
+    },
+    {
+        "name": "Radeon RX 590 Series",
+        "score": 53270
+    },
+    {
+        "name": "GeForce RTX 3050 Laptop GPU",
+        "score": 53105
+    },
+    {
+        "name": "Radeon R9 Fury Series",
+        "score": 52607
+    },
+    {
+        "name": "Radeon RX 5600M Series",
+        "score": 51917
+    },
+    {
+        "name": "Radeon RX 590 GME",
+        "score": 50379
+    },
+    {
+        "name": "GeForce GTX 1070",
+        "score": 49888
+    },
+    {
+        "name": "Intel Arc A550M Graphics",
+        "score": 49580
+    },
+    {
+        "name": "Radeon RX 480 Graphics",
+        "score": 48947
+    },
+    {
+        "name": "Radeon RX 5600M",
+        "score": 48843
+    },
+    {
+        "name": "GeForce GTX 980 Ti",
+        "score": 47961
+    },
+    {
+        "name": "Radeon RX 580 Series",
+        "score": 47229
+    },
+    {
+        "name": "GeForce RTX 3050 4GB Laptop GPU",
+        "score": 46214
+    },
+    {
+        "name": "Radeon RX 6500M",
+        "score": 46114
+    },
+    {
+        "name": "Radeon RX 480",
+        "score": 45949
+    },
+    {
+        "name": "Radeon RX 580 Graphics",
+        "score": 45830
+    },
+    {
+        "name": "Radeon RX 580",
+        "score": 45810
+    },
+    {
+        "name": "Radeon R9 390 Series",
+        "score": 45225
+    },
+    {
+        "name": "Radeon 890M Graphics",
+        "score": 44386
+    },
+    {
+        "name": "Radeon RX 5500 XT",
+        "score": 44191
+    },
+    {
+        "name": "Radeon R9 290X",
+        "score": 44042
+    },
+    {
+        "name": "Intel Arc A530M Graphics",
+        "score": 43931
+    },
+    {
+        "name": "Radeon RX 6500",
+        "score": 43920
+    },
+    {
+        "name": "GeForce RTX 2050",
+        "score": 42731
+    },
+    {
+        "name": "Radeon RX 570 Graphics",
+        "score": 42703
+    },
+    {
+        "name": "Radeon RX 5500",
+        "score": 41947
+    },
+    {
+        "name": "Radeon RX 5500M",
+        "score": 40954
+    },
+    {
+        "name": "Radeon RX 570 Series",
+        "score": 40700
+    },
+    {
+        "name": "Radeon RX 470 Series",
+        "score": 40409
+    },
+    {
+        "name": "Radeon RX 580 2048SP",
+        "score": 40400
+    },
+    {
+        "name": "GeForce GTX 1650 Ti",
+        "score": 40208
+    },
+    {
+        "name": "Radeon 880M Graphics",
+        "score": 39901
+    },
+    {
+        "name": "Radeon RX 470 Graphics",
+        "score": 39897
+    },
+    {
+        "name": "GeForce GTX 1070 with Max-Q Design",
+        "score": 39267
+    },
+    {
+        "name": "GeForce GTX 1650 Ti with Max-Q Design",
+        "score": 38942
+    },
+    {
+        "name": "Radeon RX 6400",
+        "score": 38410
+    },
+    {
+        "name": "GeForce GTX 980",
+        "score": 38165
+    },
+    {
+        "name": "ASUS Radeon RX 470 Series",
+        "score": 37811
+    },
+    {
+        "name": "GeForce GTX 1650",
+        "score": 37571
+    },
+    {
+        "name": "Intel Arc 140T GPU",
+        "score": 37464
+    },
+    {
+        "name": "GeForce MX570 A",
+        "score": 37337
+    },
+    {
+        "name": "Intel Arc Pro 140T GPU",
+        "score": 37288
+    },
+    {
+        "name": "Radeon RX 560 XT",
+        "score": 36756
+    },
+    {
+        "name": "Intel Arc A380 Graphics",
+        "score": 36718
+    },
+    {
+        "name": "GeForce GTX 1060 6GB",
+        "score": 35703
+    },
+    {
+        "name": "Intel Arc Pro",
+        "score": 34978
+    },
+    {
+        "name": "GeForce GTX 1650 with Max-Q Design",
+        "score": 34464
+    },
+    {
+        "name": "GeForce GTX 1060 5GB",
+        "score": 33988
+    },
+    {
+        "name": "Radeon 780M Graphics",
+        "score": 33835
+    },
+    {
+        "name": "Intel Arc Pro Graphics",
+        "score": 33597
+    },
+    {
+        "name": "Radeon 780M",
+        "score": 33596
+    },
+    {
+        "name": "Intel Arc 140V GPU",
+        "score": 33452
+    },
+    {
+        "name": "Radeon R9 200 Series",
+        "score": 33031
+    },
+    {
+        "name": "Radeon R9 200 / HD 7900 Series",
+        "score": 33005
+    },
+    {
+        "name": "Intel Arc A380E Graphics",
+        "score": 32573
+    },
+    {
+        "name": "GeForce GTX 1060 3GB",
+        "score": 32433
+    },
+    {
+        "name": "GeForce MX550",
+        "score": 32373
+    },
+    {
+        "name": "GeForce GTX 970",
+        "score": 32300
+    },
+    {
+        "name": "Radeon 860M Graphics",
+        "score": 32167
+    },
+    {
+        "name": "Intel Arc Pro A40/A50 Graphics",
+        "score": 32062
+    },
+    {
+        "name": "Radeon RX Vega M GH Graphics",
+        "score": 31263
+    },
+    {
+        "name": "Intel Arc Graphics",
+        "score": 31219
+    },
+    {
+        "name": "GeForce GTX 1060",
+        "score": 30894
+    },
+    {
+        "name": "Intel Arc 130T GPU",
+        "score": 30429
+    },
+    {
+        "name": "Radeon R9 380 Series",
+        "score": 30378
+    },
+    {
+        "name": "GeForce GTX 1060 with Max-Q Design",
+        "score": 29492
+    },
+    {
+        "name": "Radeon RX 6300",
+        "score": 29472
+    },
+    {
+        "name": "Intel Arc 130V GPU",
+        "score": 28985
+    },
+    {
+        "name": "Intel Arc A310 Graphics",
+        "score": 28872
+    },
+    {
+        "name": "Intel Arc A370M Graphics",
+        "score": 28725
+    },
+    {
+        "name": "Radeon HD 7900 Series",
+        "score": 28647
+    },
+    {
+        "name": "Radeon 760M Graphics",
+        "score": 27878
+    },
+    {
+        "name": "GeForce MX450",
+        "score": 27321
+    },
+    {
+        "name": "GeForce GTX 780 Ti",
+        "score": 27238
+    },
+    {
+        "name": "Radeon TM Graphics",
+        "score": 27049
+    },
+    {
+        "name": "Radeon 680M",
+        "score": 26244
+    },
+    {
+        "name": "Radeon 760M",
+        "score": 25805
+    },
+    {
+        "name": "Radeon 740M Graphics",
+        "score": 24943
+    },
+    {
+        "name": "GeForce GTX 780",
+        "score": 24865
+    },
+    {
+        "name": "Intel Arc A310 LP Graphics",
+        "score": 24742
+    },
+    {
+        "name": "Intel Arc A350M Graphics",
+        "score": 24725
+    },
+    {
+        "name": "GeForce GTX 980M",
+        "score": 23881
+    },
+    {
+        "name": "GeForce GTX 1630",
+        "score": 23619
+    },
+    {
+        "name": "Radeon RX Vega M GL Graphics",
+        "score": 22297
+    },
+    {
+        "name": "GeForce GTX 960",
+        "score": 20857
+    },
+    {
+        "name": "Radeon RX 460",
+        "score": 20633
+    },
+    {
+        "name": "Radeon RX 670 Graphics",
+        "score": 20255
+    },
+    {
+        "name": "Radeon 840M Graphics",
+        "score": 20175
+    },
+    {
+        "name": "Radeon RX 560X",
+        "score": 20149
+    },
+    {
+        "name": "GeForce GTX 1050 Ti",
+        "score": 20120
+    },
+    {
+        "name": "Radeon RX 460 Graphics",
+        "score": 20031
+    },
+    {
+        "name": "Radeon RX 560 Series",
+        "score": 19815
+    },
+    {
+        "name": "GeForce GTX 970M",
+        "score": 19631
+    },
+    {
+        "name": "Radeon RX 560",
+        "score": 19607
+    },
+    {
+        "name": "Radeon R7 370 Series",
+        "score": 19332
+    },
+    {
+        "name": "Radeon HD 7800 Series",
+        "score": 19307
+    },
+    {
+        "name": "GeForce GTX 770",
+        "score": 19076
+    },
+    {
+        "name": "GeForce GTX 1050 Ti with Max-Q Design",
+        "score": 18555
+    },
+    {
+        "name": "Radeon RX 560X Series",
+        "score": 18126
+    },
+    {
+        "name": "GeForce GTX 680",
+        "score": 18023
+    },
+    {
+        "name": "Intel Iris Xe MAX Graphics",
+        "score": 17892
+    },
+    {
+        "name": "GeForce GTX 1050 with Max-Q Design",
+        "score": 17791
+    },
+    {
+        "name": "GeForce GTX 1050",
+        "score": 17177
+    },
+    {
+        "name": "GeForce GTX 690",
+        "score": 16675
+    },
+    {
+        "name": "GeForce GTX 965M",
+        "score": 16656
+    },
+    {
+        "name": "GeForce GTX 950",
+        "score": 16598
+    },
+    {
+        "name": "Intel Iris Xe Graphics",
+        "score": 16550
+    },
+    {
+        "name": "Radeon RX 640",
+        "score": 16397
+    },
+    {
+        "name": "GeForce GTX 670",
+        "score": 16269
+    },
+    {
+        "name": "GeForce GTX 660 Ti",
+        "score": 16178
+    },
+    {
+        "name": "Radeon RX 550 series",
+        "score": 15990
+    },
+    {
+        "name": "Radeon Graphics",
+        "score": 15963
+    },
+    {
+        "name": "Radeon RX 550 Series",
+        "score": 15900
+    },
+    {
+        "name": "Radeon R7 360 Series",
+        "score": 15685
+    },
+    {
+        "name": "Radeon 740M",
+        "score": 15601
+    },
+    {
+        "name": "Radeon 660M",
+        "score": 14731
+    },
+    {
+        "name": "GeForce GTX 760",
+        "score": 14407
+    },
+    {
+        "name": "Radeon R9 360",
+        "score": 14216
+    },
+    {
+        "name": "Intel Gen12 Mobile Graphice Controller",
+        "score": 14128
+    },
+    {
+        "name": "Radeon RX Vega 11 Graphics",
+        "score": 13490
+    },
+    {
+        "name": "GeForce MX350",
+        "score": 13289
+    },
+    {
+        "name": "Radeon HD 8950",
+        "score": 12979
+    },
+    {
+        "name": "Radeon RX Vega Graphics",
+        "score": 12840
+    },
+    {
+        "name": "Radeon HD 7700 Series",
+        "score": 12792
+    },
+    {
+        "name": "Radeon RX 550/550 Series",
+        "score": 12726
+    },
+    {
+        "name": "GeForce GTX 780M",
+        "score": 12696
+    },
+    {
+        "name": "Radeon Pro Graphics",
+        "score": 12601
+    },
+    {
+        "name": "Radeon RX 550",
+        "score": 12535
+    },
+    {
+        "name": "Radeon RX 550X",
+        "score": 12522
+    },
+    {
+        "name": "Radeon Vega 11 Graphics",
+        "score": 12362
+    },
+    {
+        "name": "GeForce GTX 660",
+        "score": 11861
+    },
+    {
+        "name": "Radeon 550 Series",
+        "score": 11360
+    },
+    {
+        "name": "Radeon 550",
+        "score": 11257
+    },
+    {
+        "name": "Intel Iris Pro Graphics P580",
+        "score": 11156
+    },
+    {
+        "name": "Intel Iris Pro Graphics 580",
+        "score": 10984
+    },
+    {
+        "name": "GeForce GTX 750 Ti",
+        "score": 10768
+    },
+    {
+        "name": "Radeon R9 M275X",
+        "score": 10653
+    },
+    {
+        "name": "Radeon Vega 9 Graphics",
+        "score": 10227
+    },
+    {
+        "name": "Intel Xe Graphics",
+        "score": 10140
+    },
+    {
+        "name": "GeForce GTX 650 Ti BOOST",
+        "score": 10038
+    }
+];
+
+    // 配置：自动识别的系列标签规则 (正则)
+    const seriesRules = [
+        { label: "NVIDIA RTX 50", regex: /RTX 50/i, vendor: "nvidia" },
+        { label: "NVIDIA RTX 40", regex: /RTX 40/i, vendor: "nvidia" },
+        { label: "NVIDIA RTX 30", regex: /RTX 30/i, vendor: "nvidia" },
+        { label: "NVIDIA RTX 20", regex: /RTX 20/i, vendor: "nvidia" },
+        { label: "NVIDIA GTX 16/10", regex: /GTX (16|10)/i, vendor: "nvidia" },
+        { label: "AMD RX 9000", regex: /RX 9\d/i, vendor: "amd" },
+        { label: "AMD RX 7000", regex: /RX 7\d/i, vendor: "amd" },
+        { label: "AMD RX 6000", regex: /RX 6\d/i, vendor: "amd" },
+        { label: "AMD RX 5000", regex: /RX 5\d\d\d/i, vendor: "amd" },
+        { label: "AMD 核显", regex: /Radeon (Graphics|Vega|\d{3,4}G|\d{3,4}M|\d{3,4}S)|Radeon (680M|780M)\b|Ryzen.*Radeon/i, vendor: "amd-igpu" },
+        { label: "Intel 核显", regex: /Intel|Iris|UHD|HD Graphics/i, vendor: "intel-igpu" }
+    ];
+
+    const mobileRegex = /Laptop|Mobile|Max-Q/i;
+
+    const tableBody = document.getElementById('gpu-table');
+    const searchInput = document.getElementById('search-input');
+    const scoreInput = document.getElementById('score-input');
+    const seriesContainer = document.getElementById('series-filters');
+    const countDisplay = document.getElementById('count-display');
+    const showMobileInput = document.getElementById('show-mobile');
+    const mobileToggle = document.getElementById('mobile-toggle');
+    const showSelectedInput = document.getElementById('show-selected');
+    const selectedToggle = document.getElementById('selected-toggle');
+    const selectNvidiaButton = document.getElementById('select-nvidia');
+    const clearNvidiaButton = document.getElementById('clear-nvidia');
+    const selectAmdButton = document.getElementById('select-amd');
+    const clearAmdButton = document.getElementById('clear-amd');
+    const selectIgpuButton = document.getElementById('select-igpu');
+    const clearIgpuButton = document.getElementById('clear-igpu');
+
+    let activeSeries = new Set(); // 存储选中的系列标签
+    let seriesCheckboxes = [];
+    let selectedNames = new Set();
+
+    // 初始化页面
+    function init() {
+        createSeriesCheckboxes();
+        renderTable(gpuData);
+        
+        // 绑定事件
+        const debouncedRender = debounce(() => renderTable(gpuData), 200);
+        searchInput.addEventListener('input', debouncedRender);
+        scoreInput.addEventListener('input', debouncedRender);
+        showMobileInput.addEventListener('change', () => {
+            if (showMobileInput.checked) {
+                mobileToggle.classList.add('checked');
+            } else {
+                mobileToggle.classList.remove('checked');
+            }
+            renderTable(gpuData);
+        });
+        showSelectedInput.addEventListener('change', () => {
+            if (showSelectedInput.checked) {
+                selectedToggle.classList.add('checked');
+            } else {
+                selectedToggle.classList.remove('checked');
+            }
+            renderTable(gpuData);
+        });
+        selectNvidiaButton.addEventListener('click', () => setVendorSeries('nvidia', true));
+        clearNvidiaButton.addEventListener('click', () => setVendorSeries('nvidia', false));
+        selectAmdButton.addEventListener('click', () => setVendorSeries('amd', true));
+        clearAmdButton.addEventListener('click', () => setVendorSeries('amd', false));
+        selectIgpuButton.addEventListener('click', () => setVendorSeries('amd-igpu', true, 'intel-igpu'));
+        clearIgpuButton.addEventListener('click', () => setVendorSeries('amd-igpu', false, 'intel-igpu'));
+    }
+
+    // 动态生成系列复选框
+    function createSeriesCheckboxes() {
+        seriesRules.forEach((rule, index) => {
+            const label = document.createElement('label');
+            label.className = 'checkbox-item';
+            label.innerHTML = `
+                <input type="checkbox" value="${index}">
+                ${rule.label}
+            `;
+            const checkbox = label.querySelector('input');
+            
+            // 点击事件
+            checkbox.addEventListener('change', () => {
+                const checked = checkbox.checked;
+                if (checked) {
+                    label.classList.add('checked');
+                    activeSeries.add(index);
+                } else {
+                    label.classList.remove('checked');
+                    activeSeries.delete(index);
+                }
+                renderTable(gpuData);
+            });
+
+            seriesContainer.appendChild(label);
+            seriesCheckboxes.push({ checkbox, label, rule, index });
+        });
+    }
+
+    function setVendorSeries(vendor, checked, secondVendor) {
+        seriesCheckboxes.forEach(entry => {
+            if (entry.rule.vendor !== vendor && entry.rule.vendor !== secondVendor) return;
+            entry.checkbox.checked = checked;
+            if (checked) {
+                entry.label.classList.add('checked');
+                activeSeries.add(entry.index);
+            } else {
+                entry.label.classList.remove('checked');
+                activeSeries.delete(entry.index);
+            }
+        });
+        renderTable(gpuData);
+    }
+
+    // 核心筛选与渲染逻辑
+    function renderTable(data) {
+        const searchText = searchInput.value.toLowerCase();
+        const minScore = parseInt(scoreInput.value) || 0;
+        const showMobile = showMobileInput.checked;
+        const showSelected = showSelectedInput.checked;
+
+        // --- 筛选开始 ---
+        const filtered = data.filter(item => {
+            // 1. 评分筛选 (与)
+            if (item.score < minScore) return false;
+
+            // 2. 名称搜索 (与)
+            if (searchText && !item.name.toLowerCase().includes(searchText)) return false;
+
+            // 3. 默认隐藏移动端
+            if (!showMobile && mobileRegex.test(item.name)) return false;
+
+            // 4. 系列筛选 (如果有选中，则是"同类或")
+            // 逻辑: 如果 activeSeries 为空，则不进行此项筛选（相当于全选）
+            // 如果 activeSeries 不为空，item 必须匹配至少一个选中的规则
+            if (activeSeries.size > 0) {
+                let matchAnySeries = false;
+                for (let ruleIndex of activeSeries) {
+                    if (seriesRules[ruleIndex].regex.test(item.name)) {
+                        matchAnySeries = true;
+                        break; 
+                    }
+                }
+                if (!matchAnySeries) return false;
+            }
+
+            // 5. 仅展示已勾选
+            if (showSelected && !selectedNames.has(item.name)) return false;
+
+            return true;
+        });
+        // --- 筛选结束 ---
+
+        // 排序（确保总是按分数高到低，哪怕筛选后）
+        filtered.sort((a, b) => b.score - a.score);
+
+        // 获取当前显示集合的最大分值用于绘图基准
+        const maxRefScore = getMaxScore(filtered);
+
+        // 渲染 table
+        tableBody.innerHTML = '';
+        if (filtered.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px;">没有匹配的显卡</td></tr>';
+        } else {
+            filtered.forEach(gpu => {
+                const widthPercent = Math.min((gpu.score / maxRefScore) * 100, 100);
+                const isChecked = selectedNames.has(gpu.name);
+                const row = `
+                    <tr>
+                        <td class="select-col">
+                            <input class="row-check" type="checkbox" data-name="${gpu.name}" ${isChecked ? 'checked' : ''}>
+                        </td>
+                        <td class="name-col">${gpu.name}</td>
+                        <td class="score-col">${gpu.score.toLocaleString()}</td>
+                        <td class="graph-col">
+                            <div class="benchmark-bar" style="width: ${widthPercent}%"></div>
+                        </td>
+                    </tr>
+                `;
+                tableBody.innerHTML += row;
+            });
+            bindRowCheckboxes();
+        }
+        
+        countDisplay.textContent = `显示 ${filtered.length} / ${data.length} 条`;
+    }
+
+    function bindRowCheckboxes() {
+        const checkboxes = tableBody.querySelectorAll('.row-check');
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                const name = checkbox.getAttribute('data-name');
+                if (checkbox.checked) {
+                    selectedNames.add(name);
+                } else {
+                    selectedNames.delete(name);
+                }
+                if (showSelectedInput.checked) {
+                    renderTable(gpuData);
+                }
+            });
+        });
+    }
+
+    function getMaxScore(list) {
+        if (!list || list.length === 0) return 1;
+        return list.reduce((maxScore, item) => Math.max(maxScore, item.score), 1);
+    }
+
+    function debounce(fn, waitMs) {
+        let timerId = null;
+        return () => {
+            if (timerId) {
+                clearTimeout(timerId);
+            }
+            timerId = setTimeout(() => {
+                timerId = null;
+                fn();
+            }, waitMs);
+        };
+    }
+
+    // 启动
+    init();
+</script>
+
+</body>
+</html>
